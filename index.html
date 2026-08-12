@@ -11,7 +11,7 @@
   html { overflow-x: hidden; }
 body {
     font-family: -apple-system, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
-    max-width: 700px; margin: 0 auto; padding: 20px 18px; padding-bottom: 90px;
+    max-width: 700px; margin: 0 auto; padding: 20px 18px; padding-bottom: 110px;
     background: #0a0a0a; color: #f2f2f2; font-size: 16px;
     overflow-x: hidden; width: 100%;
   }
@@ -31,10 +31,14 @@ body {
   .backup-reminder-actions button:last-child { background: #232323; color: #aaa; }
 
   /* Tabs */
-  .tabs { display: flex; gap: 8px; margin-bottom: 18px; background: #161616; padding: 6px; border-radius: 16px; }
-  .tab-btn { flex: 1; padding: 10px; background: none; border: none; font-size: 15px; font-weight: 700;
-             color: #888; cursor: pointer; border-radius: 12px; transition: 0.15s; }
-  .tab-btn.active { background: #2a2a2a; color: #fff; }
+  .tabs { display: flex; gap: 4px; position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+          z-index: 100; width: calc(100% - 36px); max-width: 460px;
+          background: rgba(28,28,28,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+          padding: 6px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.06);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
+  .tab-btn { flex: 1; padding: 12px 10px; background: none; border: none; font-size: 14px; font-weight: 700;
+             color: #888; cursor: pointer; border-radius: 18px; transition: 0.15s; }
+  .tab-btn.active { background: #2f2f2f; color: #fff; }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
 
@@ -53,6 +57,8 @@ body {
 
   /* Selector buttons above table */
   .select-btn-row { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-start; }
+  #tab-training .select-btn-row { background: #161616; padding: 6px; border-radius: 16px; margin-top: 0; }
+  #tab-training .select-btn { flex: 1; }
   .select-btn { padding: 8px 16px; border: none; background: #161616; color: #aaa; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: 700; }
   .select-btn.active { background: #f2f2f2; color: #0a0a0a; }
 
@@ -85,6 +91,7 @@ body {
   .ex-table th:first-child, .ex-table td.ex-handle-cell { width: 28px; padding-left: 10px; padding-right: 0; }
   .ex-drag-handle { cursor: grab; color: #555; font-size: 18px; padding: 4px 6px; touch-action: none; user-select: none; display: inline-block; }
   .ex-table tr.dragging { opacity: 0.4; }
+  .ex-table tr.ex-row-logged td { background: rgba(61,220,132,0.07); }
 
   /* Floating plus button */
   .fab { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); right: calc(24px + env(safe-area-inset-right));
@@ -108,10 +115,50 @@ body {
   .modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; }
   .modal-actions button:first-child { background: #232323; color: #ccc; }
   .modal-actions button:last-child { background: #3ddc84; color: #0a0a0a; }
+
+  /* Skeleton Loading Screen */
+  #skeletonScreen {
+    position: fixed; inset: 0; z-index: 999; background: #0a0a0a;
+    padding: 20px 18px; max-width: 700px; margin: 0 auto;
+    transition: opacity 0.35s ease; overflow: hidden;
+  }
+  #skeletonScreen.fade-out { opacity: 0; pointer-events: none; }
+  .sk-block {
+    background: #161616; border-radius: 12px; position: relative; overflow: hidden;
+  }
+  .sk-block::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    transform: translateX(-100%); animation: sk-shimmer 1.4s infinite;
+  }
+  @keyframes sk-shimmer { 100% { transform: translateX(100%); } }
+  .sk-title { width: 160px; height: 30px; border-radius: 8px; margin-bottom: 18px; }
+  .sk-row { display: flex; gap: 8px; margin-bottom: 18px; }
+  .sk-row .sk-block { flex: 1; height: 38px; }
+  .sk-chart { width: 100%; height: 220px; margin-bottom: 14px; }
+  .sk-tablehead { width: 100%; height: 20px; margin-bottom: 10px; }
+  .sk-tablerow { width: 100%; height: 44px; margin-bottom: 8px; }
+  #mainContent { opacity: 0; transition: opacity 0.35s ease; }
+  #mainContent.ready { opacity: 1; }
 </style>
 </head>
 <body>
 
+<div id="skeletonScreen">
+  <div class="sk-block sk-title"></div>
+  <div class="sk-row"><div class="sk-block"></div><div class="sk-block"></div></div>
+  <div class="sk-row"><div class="sk-block"></div><div class="sk-block"></div></div>
+  <div class="sk-block sk-chart"></div>
+  <div class="sk-row"><div class="sk-block"></div><div class="sk-block"></div><div class="sk-block"></div></div>
+  <div class="sk-block sk-tablehead"></div>
+  <div class="sk-block sk-tablerow"></div>
+  <div class="sk-block sk-tablerow"></div>
+  <div class="sk-block sk-tablerow"></div>
+  <div class="sk-block sk-tablerow"></div>
+  <div class="sk-block sk-tablerow"></div>
+</div>
+
+<div id="mainContent">
 <h2>Fitness Log</h2>
 
 <div class="backup-row">
@@ -129,7 +176,7 @@ body {
 </div>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('start')">Start</button>
+  <button class="tab-btn active" onclick="switchTab('start')">Gewicht</button>
   <button class="tab-btn" onclick="switchTab('training')">Training</button>
 </div>
 
@@ -202,6 +249,8 @@ body {
       <button onclick="saveNewExercise()">Hinzufügen</button>
     </div>
   </div>
+</div>
+
 </div>
 
 <script>
@@ -370,7 +419,14 @@ function selectMode(mode) {
 }
 
 // ---------- TRAINING CATEGORY (Push/Pull/Legs) ----------
-let currentTrainingCat = "push";
+function getAutoTrainingCat() {
+  const day = new Date().getDay(); // 0=So, 1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr, 6=Sa
+  if (day === 1 || day === 4) return "push";
+  if (day === 2 || day === 5) return "pull";
+  if (day === 3 || day === 6) return "legs";
+  return "push"; // Sonntag: Fallback
+}
+let currentTrainingCat = getAutoTrainingCat();
 function selectTrainingCat(cat) {
   currentTrainingCat = cat;
   editState = null;
@@ -724,8 +780,9 @@ function renderTrainingTable() {
     else if (repsHasHighRep) repsStyle = ' style="text-decoration: underline; text-decoration-color: #3ddc84; text-decoration-thickness: 2px;"';
 
     const isDragging = dragId === ex.id;
+    const isLoggedToday = ex.datum === todayStr();
 
-    return `<tr data-id="${ex.id}" class="${isDragging ? 'dragging' : ''}">
+    return `<tr data-id="${ex.id}" class="${isDragging ? 'dragging' : ''}${isLoggedToday ? ' ex-row-logged' : ''}">
       <td class="ex-handle-cell"><span class="ex-drag-handle" onpointerdown="onDragHandleDown(event,'${ex.id}')">${ex.isPR ? '🏆' : '⠿'}</span></td>
       <td class="ex-name-cell"${allSetsHighRep ? overloadStyle : ''}>${ex.name}</td>
       <td>${setsCell}</td>
@@ -848,8 +905,23 @@ function renderAll() {
 
 migrateOldTrainingIfNeeded();
 document.getElementById("startDate").value = todayStr();
+document.querySelectorAll("#tab-training .select-btn").forEach(b => b.classList.toggle("active", b.dataset.cat === currentTrainingCat));
 renderAll();
 renderBackupReminder();
+
+// Skeleton loading screen ausblenden, sobald echte Daten gerendert sind
+(function hideSkeletonScreen() {
+  const MIN_DISPLAY_MS = 450;
+  setTimeout(() => {
+    const skeleton = document.getElementById("skeletonScreen");
+    const content = document.getElementById("mainContent");
+    if (content) content.classList.add("ready");
+    if (skeleton) {
+      skeleton.classList.add("fade-out");
+      setTimeout(() => skeleton.remove(), 400);
+    }
+  }, MIN_DISPLAY_MS);
+})();
 </script>
 
 </body>

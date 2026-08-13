@@ -91,10 +91,10 @@ body {
   .ex-table th:first-child, .ex-table td.ex-handle-cell { width: 28px; padding-left: 10px; padding-right: 0; }
   .ex-drag-handle { cursor: grab; color: #555; font-size: 18px; padding: 4px 6px; touch-action: none; user-select: none; display: inline-block; }
   .ex-table tr.dragging { opacity: 0.4; }
-  .ex-table tr.ex-row-logged td { background: rgba(61,220,132,0.07); }
+  .ex-table tr.ex-row-logged td { background: #1c1c1c; }
 
   /* Floating plus button */
-  .fab { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); right: calc(24px + env(safe-area-inset-right));
+  .fab { position: fixed; bottom: calc(100px + env(safe-area-inset-bottom)); right: calc(24px + env(safe-area-inset-right));
          width: 58px; height: 58px; border-radius: 50%; z-index: 500;
          background: #f2f2f2; color: #0a0a0a; font-size: 30px; font-weight: 700; border: none; cursor: pointer;
          box-shadow: 0 4px 14px rgba(0,0,0,0.5);
@@ -773,11 +773,11 @@ function renderTrainingTable() {
       repsHasHighRep = ex.reps.some(r => parseInt(r, 10) >= 12);
       allSetsHighRep = ex.reps.every(r => parseInt(r, 10) >= 12);
     }
-    const overloadStyle = ' style="color:#3ddc84;"';
+    const overloadStyle = ' style="color:#999;"';
 
     let repsStyle = '';
-    if (allSetsHighRep) repsStyle = ' style="text-decoration: underline; text-decoration-color: #3ddc84; text-decoration-thickness: 2px; color:#3ddc84;"';
-    else if (repsHasHighRep) repsStyle = ' style="text-decoration: underline; text-decoration-color: #3ddc84; text-decoration-thickness: 2px;"';
+    if (allSetsHighRep) repsStyle = ' style="text-decoration: underline; text-decoration-color: #999; text-decoration-thickness: 2px; color:#999;"';
+    else if (repsHasHighRep) repsStyle = ' style="text-decoration: underline; text-decoration-color: #999; text-decoration-thickness: 2px;"';
 
     const isDragging = dragId === ex.id;
     const isLoggedToday = ex.datum === todayStr();

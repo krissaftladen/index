@@ -37,8 +37,8 @@ body {
           padding: 6px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.06);
           box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
   .tab-btn { flex: 1; padding: 12px 10px; background: none; border: none; font-size: 14px; font-weight: 700;
-             color: #888; cursor: pointer; border-radius: 18px; transition: 0.15s; }
-  .tab-btn.active { background: #2f2f2f; color: #fff; }
+             color: #888; cursor: pointer; border-radius: 18px; transition: 0.15s; position: relative; z-index: 1; }
+  .tab-btn.active { color: #fff; transition: color 0.2s ease; }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
 
@@ -57,10 +57,21 @@ body {
 
   /* Selector buttons above table */
   .select-btn-row { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-start; }
-  #tab-training .select-btn-row { background: #161616; padding: 6px; border-radius: 16px; margin-top: 0; }
-  #tab-training .select-btn { flex: 1; }
-  .select-btn { padding: 8px 16px; border: none; background: #161616; color: #aaa; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: 700; }
-  .select-btn.active { background: #f2f2f2; color: #0a0a0a; }
+  #tab-training .select-btn-row, #tab-start .select-btn-row { background: #161616; padding: 6px; border-radius: 16px; margin-top: 0; }
+  #tab-start .select-btn-row { margin-top: 14px; }
+  #tab-training .select-btn, #tab-start .select-btn { flex: 1; }
+  .select-btn { padding: 8px 16px; border: none; background: none; color: #aaa; border-radius: 12px; cursor: pointer;
+                font-size: 13px; font-weight: 700; position: relative; z-index: 1; transition: color 0.2s ease; }
+  .select-btn.active { color: #0a0a0a; }
+
+  /* Sliding Pill Indicator (liquid-ähnlicher Tab-Wechsel) */
+  .pill-indicator {
+    position: absolute; top: 6px; bottom: 6px; border-radius: 18px;
+    transition: left 0.42s cubic-bezier(0.34, 1.32, 0.4, 1), width 0.42s cubic-bezier(0.34, 1.32, 0.4, 1);
+    z-index: 0; pointer-events: none;
+  }
+  .tabs .pill-indicator { background: #2f2f2f; border-radius: 18px; }
+  .select-btn-row .pill-indicator { background: #f2f2f2; border-radius: 12px; }
 
   /* Table -> card list feel */
   table { border-collapse: collapse; width: 100%; margin-top: 14px; background: #161616; border-radius: 18px; overflow: hidden; }
@@ -69,6 +80,15 @@ body {
   tr:last-child td { border-bottom: none; }
   .month-sep-row td { background: #1c1c1c; padding: 8px 14px; border-bottom: 1px solid #232323; }
   .month-sep { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #aaa; font-weight: 700; }
+
+  /* Swipe-to-delete für Gewicht/Arms/Chest Einträge */
+  .swipe-cell { padding: 0 !important; position: relative; overflow: hidden; }
+  .swipe-delete-bg { position: absolute; inset: 0; background: #ff5c5c; color: #fff; display: flex;
+                      align-items: center; justify-content: flex-end; padding-right: 22px;
+                      font-weight: 700; font-size: 13px; cursor: pointer; }
+  .swipe-content { position: relative; z-index: 1; display: flex; justify-content: space-between;
+                    align-items: center; background: #161616; padding: 10px 14px;
+                    touch-action: pan-y; will-change: transform; }
 
   /* Training exercise table */
   .ex-table-wrap { margin-top: 14px; background: #161616; border-radius: 18px; overflow-x: auto; }
@@ -176,6 +196,7 @@ body {
 </div>
 
 <div class="tabs">
+  <div class="pill-indicator" id="tabsIndicator"></div>
   <button class="tab-btn active" onclick="switchTab('start')">Gewicht</button>
   <button class="tab-btn" onclick="switchTab('training')">Training</button>
 </div>
@@ -194,7 +215,8 @@ body {
   </div>
   <canvas id="mainChart" width="650" height="220"></canvas>
 
-  <div class="select-btn-row">
+  <div class="select-btn-row" id="startModeRow">
+    <div class="pill-indicator" id="startModeIndicator"></div>
     <button class="select-btn active" data-mode="gewicht" onclick="selectMode('gewicht')">Weight</button>
     <button class="select-btn" data-mode="oberarm" onclick="selectMode('oberarm')">Arms</button>
     <button class="select-btn" data-mode="brust" onclick="selectMode('brust')">Chest</button>
@@ -208,7 +230,8 @@ body {
 
 <!-- TRAINING TAB -->
 <div id="tab-training" class="tab-content">
-  <div class="select-btn-row">
+  <div class="select-btn-row" id="trainingCatRow">
+    <div class="pill-indicator" id="trainingCatIndicator"></div>
     <button class="select-btn active" data-cat="push" onclick="selectTrainingCat('push')">Push</button>
     <button class="select-btn" data-cat="pull" onclick="selectTrainingCat('pull')">Pull</button>
     <button class="select-btn" data-cat="legs" onclick="selectTrainingCat('legs')">Legs</button>
@@ -398,8 +421,30 @@ function switchTab(tab) {
   document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
   document.getElementById("tab-" + tab).classList.add("active");
   event.target.classList.add("active");
+  movePillIndicator("tabsIndicator", event.target);
   if (tab === "training") renderTrainingTable();
 }
+
+// ---------- SLIDING PILL INDICATOR ----------
+function movePillIndicator(indicatorId, activeBtn) {
+  const indicator = document.getElementById(indicatorId);
+  if (!indicator || !activeBtn) return;
+  const container = indicator.parentElement;
+  const cRect = container.getBoundingClientRect();
+  const bRect = activeBtn.getBoundingClientRect();
+  indicator.style.left = (bRect.left - cRect.left) + "px";
+  indicator.style.width = bRect.width + "px";
+}
+
+function initPillIndicators() {
+  const tabsActive = document.querySelector(".tab-btn.active");
+  if (tabsActive) movePillIndicator("tabsIndicator", tabsActive);
+  const modeActive = document.querySelector("#startModeRow .select-btn.active");
+  if (modeActive) movePillIndicator("startModeIndicator", modeActive);
+  const catActive = document.querySelector("#trainingCatRow .select-btn.active");
+  if (catActive) movePillIndicator("trainingCatIndicator", catActive);
+}
+window.addEventListener("resize", initPillIndicators);
 
 function onStartDateChange() {
   currentStartDate = document.getElementById("startDate").value || todayStr();
@@ -414,6 +459,7 @@ const MODE_FIELD = { gewicht: "gewicht", oberarm: "oberarm", brust: "brust" };
 function selectMode(mode) {
   currentMode = mode;
   document.querySelectorAll("#tab-start .select-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
+  movePillIndicator("startModeIndicator", document.querySelector(`#startModeRow .select-btn[data-mode="${mode}"]`));
   renderStartTable();
   renderChart();
 }
@@ -431,6 +477,7 @@ function selectTrainingCat(cat) {
   currentTrainingCat = cat;
   editState = null;
   document.querySelectorAll("#tab-training .select-btn").forEach(b => b.classList.toggle("active", b.dataset.cat === cat));
+  movePillIndicator("trainingCatIndicator", document.querySelector(`#trainingCatRow .select-btn[data-cat="${cat}"]`));
   renderTrainingTable();
 }
 
@@ -654,6 +701,70 @@ function monthLabel(monthKey) {
   return `${MONTH_NAMES[parseInt(m, 10) - 1]} ${y.slice(2)}`;
 }
 
+// ---------- SWIPE TO DELETE (Gewicht/Arms/Chest) ----------
+let swipeState = { startX: 0, startY: 0, dragging: false, el: null, locked: null, currentX: 0 };
+const SWIPE_MAX = 84;
+
+function closeAllSwipes(except) {
+  document.querySelectorAll(".swipe-content.swiped").forEach(el => {
+    if (el !== except) { el.style.transform = "translateX(0)"; el.classList.remove("swiped"); }
+  });
+}
+
+function onSwipeStart(e) {
+  const t = e.touches[0];
+  swipeState = { startX: t.clientX, startY: t.clientY, dragging: false, el: e.currentTarget, locked: null, currentX: 0 };
+}
+
+function onSwipeMove(e) {
+  if (!swipeState.el) return;
+  const t = e.touches[0];
+  const dx = t.clientX - swipeState.startX;
+  const dy = t.clientY - swipeState.startY;
+  if (swipeState.locked === null) {
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) swipeState.locked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+  }
+  if (swipeState.locked !== "x") return;
+  e.preventDefault();
+  swipeState.dragging = true;
+  const base = swipeState.el.classList.contains("swiped") ? -SWIPE_MAX : 0;
+  let nx = Math.max(-SWIPE_MAX, Math.min(0, base + dx));
+  swipeState.el.style.transition = "none";
+  swipeState.el.style.transform = `translateX(${nx}px)`;
+  swipeState.currentX = nx;
+}
+
+function onSwipeEnd() {
+  if (!swipeState.el) return;
+  const el = swipeState.el;
+  el.style.transition = "transform 0.2s ease";
+  if (swipeState.dragging) {
+    if (swipeState.currentX < -SWIPE_MAX / 2) {
+      el.style.transform = `translateX(-${SWIPE_MAX}px)`;
+      el.classList.add("swiped");
+      closeAllSwipes(el);
+    } else {
+      el.style.transform = "translateX(0)";
+      el.classList.remove("swiped");
+    }
+  } else if (el.classList.contains("swiped")) {
+    el.style.transform = "translateX(0)";
+    el.classList.remove("swiped");
+  }
+  swipeState = { startX: 0, startY: 0, dragging: false, el: null, locked: null, currentX: 0 };
+}
+
+function deleteDailyValue(datum, mode) {
+  let entries = loadJSON(DAILY_KEY);
+  const idx = entries.findIndex(e => e.datum === datum);
+  if (idx === -1) return;
+  delete entries[idx][mode];
+  const e = entries[idx];
+  if (!e.gewicht && !e.oberarm && !e.brust) entries.splice(idx, 1);
+  saveJSON(DAILY_KEY, entries);
+  renderAll();
+}
+
 function buildTableRowsWithMonthAverages(entries, valueKey, unit) {
   // entries: bereits absteigend nach Datum sortiert (neueste zuerst)
   const monthSums = {};
@@ -690,7 +801,14 @@ function buildTableRowsWithMonthAverages(entries, valueKey, unit) {
     const mKey = e.datum.slice(0, 7);
     if (lastMonth !== null && mKey !== lastMonth) html += sepRow(lastMonth);
     const v = e[valueKey];
-    html += `<tr><td>${formatDate(e.datum)}</td><td>${v} ${unit}</td></tr>`;
+    html += `<tr class="swipe-row">
+      <td colspan="2" class="swipe-cell">
+        <div class="swipe-delete-bg" onclick="deleteDailyValue('${e.datum}','${valueKey}')">Löschen</div>
+        <div class="swipe-content" ontouchstart="onSwipeStart(event)" ontouchmove="onSwipeMove(event)" ontouchend="onSwipeEnd(event)">
+          <span>${formatDate(e.datum)}</span><span>${v} ${unit}</span>
+        </div>
+      </td>
+    </tr>`;
     lastMonth = mKey;
   });
   return html;
@@ -842,7 +960,9 @@ function renderChart() {
   const w = cssWidth - padding * 2;
 
   // Build a date -> x mapping based on actual elapsed time, not index position
-  const allDates = daily.map(e => e.datum);
+  // WICHTIG: nur die Daten der Punkte verwenden, die für den aktuellen Modus existieren –
+  // sonst spannt sich die Achse über alle jemals erfassten Einträge (z.B. reine Gewichts-Logs).
+  const allDates = points.map(p => p.datum);
   let xForDate = () => padding;
   if (allDates.length > 0) {
     const times = allDates.map(d => new Date(d).getTime());
@@ -908,6 +1028,15 @@ document.getElementById("startDate").value = todayStr();
 document.querySelectorAll("#tab-training .select-btn").forEach(b => b.classList.toggle("active", b.dataset.cat === currentTrainingCat));
 renderAll();
 renderBackupReminder();
+
+// Pill-Indikatoren initial ohne Animation positionieren, danach Transition wieder aktivieren
+document.querySelectorAll(".pill-indicator").forEach(el => el.style.transition = "none");
+initPillIndicators();
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    document.querySelectorAll(".pill-indicator").forEach(el => el.style.transition = "");
+  });
+});
 
 // Skeleton loading screen ausblenden, sobald echte Daten gerendert sind
 (function hideSkeletonScreen() {

@@ -56,13 +56,13 @@ body {
   canvas { border-radius: 18px; background: #161616; width: 100%; margin-top: 4px; }
 
   /* Selector buttons above table */
-  .select-btn-row { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-start; }
+  .select-btn-row { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-start; position: relative; }
   #tab-training .select-btn-row, #tab-start .select-btn-row { background: #161616; padding: 6px; border-radius: 16px; margin-top: 0; }
   #tab-start .select-btn-row { margin-top: 14px; }
   #tab-training .select-btn, #tab-start .select-btn { flex: 1; }
   .select-btn { padding: 8px 16px; border: none; background: none; color: #aaa; border-radius: 12px; cursor: pointer;
                 font-size: 13px; font-weight: 700; position: relative; z-index: 1; transition: color 0.2s ease; }
-  .select-btn.active { color: #0a0a0a; }
+  .select-btn.active { color: #fff; }
 
   /* Sliding Pill Indicator (liquid-ähnlicher Tab-Wechsel) */
   .pill-indicator {
@@ -71,7 +71,7 @@ body {
     z-index: 0; pointer-events: none;
   }
   .tabs .pill-indicator { background: #2f2f2f; border-radius: 18px; }
-  .select-btn-row .pill-indicator { background: #f2f2f2; border-radius: 12px; }
+  .select-btn-row .pill-indicator { background: #2f2f2f; border-radius: 12px; }
 
   /* Table -> card list feel */
   table { border-collapse: collapse; width: 100%; margin-top: 14px; background: #161616; border-radius: 18px; overflow: hidden; }
@@ -91,7 +91,7 @@ body {
                     touch-action: pan-y; will-change: transform; }
 
   /* Training exercise table */
-  .ex-table-wrap { margin-top: 14px; background: #161616; border-radius: 18px; overflow-x: auto; }
+  .ex-table-wrap { margin-top: 14px; background: #161616; border-radius: 18px; overflow: hidden; position: relative; }
   .ex-table { width: 100%; border-collapse: collapse; margin-top: 0; }
   .ex-table th { color: #888; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
                  background: #1c1c1c; padding: 10px 8px; text-align: left; white-space: nowrap; }
@@ -112,6 +112,10 @@ body {
   .ex-drag-handle { cursor: grab; color: #555; font-size: 18px; padding: 4px 6px; touch-action: none; user-select: none; display: inline-block; }
   .ex-table tr.dragging { opacity: 0.4; }
   .ex-table tr.ex-row-logged td { background: #1c1c1c; }
+  .ex-table tr.ex-swipe-row { transition: transform 0.2s ease; touch-action: pan-y; background: #161616; }
+  .ex-swipe-delete-bg { position: absolute; right: 0; background: #ff5c5c; color: #fff; display: none;
+                         align-items: center; justify-content: center; font-weight: 700; font-size: 13px;
+                         cursor: pointer; z-index: 2; }
 
   /* Floating plus button */
   .fab { position: fixed; bottom: calc(100px + env(safe-area-inset-bottom)); right: calc(24px + env(safe-area-inset-right));
@@ -217,7 +221,7 @@ body {
 
   <div class="select-btn-row" id="startModeRow">
     <div class="pill-indicator" id="startModeIndicator"></div>
-    <button class="select-btn active" data-mode="gewicht" onclick="selectMode('gewicht')">Weight</button>
+    <button class="select-btn active" data-mode="gewicht" onclick="selectMode('gewicht')">Gewicht</button>
     <button class="select-btn" data-mode="oberarm" onclick="selectMode('oberarm')">Arms</button>
     <button class="select-btn" data-mode="brust" onclick="selectMode('brust')">Chest</button>
   </div>
@@ -237,8 +241,9 @@ body {
     <button class="select-btn" data-cat="legs" onclick="selectTrainingCat('legs')">Legs</button>
   </div>
   <div class="ex-table-wrap">
+    <div class="ex-swipe-delete-bg" id="exDeleteBg" onclick="onExDeleteBgClick()">Löschen</div>
     <table class="ex-table">
-      <thead><tr><th></th><th>Übung</th><th>Sätze</th><th>Wdh</th><th>Gewicht</th><th></th></tr></thead>
+      <thead><tr><th></th><th>Übung</th><th>Sätze</th><th>Wdh</th><th>Gewicht</th></tr></thead>
       <tbody id="trainingTableBody"></tbody>
     </table>
   </div>
@@ -546,6 +551,88 @@ function deleteExercise(id) {
   renderTrainingTable();
 }
 
+// ---------- SWIPE TO DELETE (Übungen im Training) ----------
+let exSwipeState = { startX: 0, startY: 0, dragging: false, tr: null, locked: null, currentX: 0 };
+const EX_SWIPE_MAX = 84;
+
+function closeAllExSwipes(except) {
+  document.querySelectorAll(".ex-table tr.ex-swiped").forEach(tr => {
+    if (tr !== except) { tr.style.transform = "translateX(0)"; tr.classList.remove("ex-swiped"); }
+  });
+  if (!except) hideExDeleteBg();
+}
+
+function positionExDeleteBg(tr) {
+  const bg = document.getElementById("exDeleteBg");
+  const wrap = tr.closest(".ex-table-wrap");
+  if (!bg || !wrap) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  const trRect = tr.getBoundingClientRect();
+  bg.style.display = "flex";
+  bg.style.top = (trRect.top - wrapRect.top) + "px";
+  bg.style.height = trRect.height + "px";
+  bg.style.width = EX_SWIPE_MAX + "px";
+  bg.dataset.exId = tr.dataset.id;
+}
+
+function hideExDeleteBg() {
+  const bg = document.getElementById("exDeleteBg");
+  if (bg) bg.style.display = "none";
+}
+
+function onExDeleteBgClick() {
+  const bg = document.getElementById("exDeleteBg");
+  if (bg && bg.dataset.exId) deleteExercise(bg.dataset.exId);
+}
+
+function exSwipeStart(e) {
+  if (e.target.closest(".ex-drag-handle") || e.target.closest(".ex-cell") || e.target.closest("input")) return;
+  const t = e.touches[0];
+  exSwipeState = { startX: t.clientX, startY: t.clientY, dragging: false, tr: e.currentTarget, locked: null, currentX: 0 };
+}
+
+function exSwipeMove(e) {
+  if (!exSwipeState.tr) return;
+  const t = e.touches[0];
+  const dx = t.clientX - exSwipeState.startX;
+  const dy = t.clientY - exSwipeState.startY;
+  if (exSwipeState.locked === null) {
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) exSwipeState.locked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+  }
+  if (exSwipeState.locked !== "x") return;
+  e.preventDefault();
+  exSwipeState.dragging = true;
+  const base = exSwipeState.tr.classList.contains("ex-swiped") ? -EX_SWIPE_MAX : 0;
+  const nx = Math.max(-EX_SWIPE_MAX, Math.min(0, base + dx));
+  exSwipeState.tr.style.transition = "none";
+  exSwipeState.tr.style.transform = `translateX(${nx}px)`;
+  exSwipeState.currentX = nx;
+  positionExDeleteBg(exSwipeState.tr);
+}
+
+function exSwipeEnd() {
+  if (!exSwipeState.tr) return;
+  const tr = exSwipeState.tr;
+  tr.style.transition = "transform 0.2s ease";
+  if (exSwipeState.dragging) {
+    if (exSwipeState.currentX < -EX_SWIPE_MAX / 2) {
+      tr.style.transform = `translateX(-${EX_SWIPE_MAX}px)`;
+      tr.classList.add("ex-swiped");
+      closeAllExSwipes(tr);
+      positionExDeleteBg(tr);
+    } else {
+      tr.style.transform = "translateX(0)";
+      tr.classList.remove("ex-swiped");
+      hideExDeleteBg();
+    }
+  } else if (tr.classList.contains("ex-swiped")) {
+    tr.style.transform = "translateX(0)";
+    tr.classList.remove("ex-swiped");
+    hideExDeleteBg();
+  }
+  exSwipeState = { startX: 0, startY: 0, dragging: false, tr: null, locked: null, currentX: 0 };
+}
+
 // ---------- TRAINING TAB: Klick-zum-Bearbeiten mit Enter-Sprung ----------
 // editState.stage: 'sets' | 'reps' | 'weight'
 let editState = null;
@@ -840,7 +927,7 @@ function renderTrainingTable() {
   const list = loadJSON(EX_LIST_KEY).filter(e => e.category === currentTrainingCat);
 
   if (!list.length) {
-    body.innerHTML = `<tr><td colspan="6" class="ex-empty-hint">Noch keine Übungen. Mit + eine hinzufügen.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="5" class="ex-empty-hint">Noch keine Übungen. Mit + eine hinzufügen.</td></tr>`;
     return;
   }
 
@@ -900,13 +987,13 @@ function renderTrainingTable() {
     const isDragging = dragId === ex.id;
     const isLoggedToday = ex.datum === todayStr();
 
-    return `<tr data-id="${ex.id}" class="${isDragging ? 'dragging' : ''}${isLoggedToday ? ' ex-row-logged' : ''}">
+    return `<tr data-id="${ex.id}" class="ex-swipe-row ${isDragging ? 'dragging' : ''}${isLoggedToday ? ' ex-row-logged' : ''}"
+                ontouchstart="exSwipeStart(event)" ontouchmove="exSwipeMove(event)" ontouchend="exSwipeEnd(event)">
       <td class="ex-handle-cell"><span class="ex-drag-handle" onpointerdown="onDragHandleDown(event,'${ex.id}')">${ex.isPR ? '🏆' : '⠿'}</span></td>
       <td class="ex-name-cell"${allSetsHighRep ? overloadStyle : ''}>${ex.name}</td>
       <td>${setsCell}</td>
       <td${repsStyle}>${repsCell}</td>
       <td${allSetsHighRep ? overloadStyle : ''}>${weightCell}</td>
-      <td><button class="ex-del-btn" onclick="deleteExercise('${ex.id}')">✕</button></td>
     </tr>`;
   }).join("");
 

@@ -37,7 +37,9 @@ body {
           padding: 6px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.06);
           box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
   .tab-btn { flex: 1; padding: 12px 10px; background: none; border: none; font-size: 14px; font-weight: 700;
-             color: #888; cursor: pointer; border-radius: 18px; transition: 0.15s; position: relative; z-index: 1; }
+             color: #888; cursor: pointer; border-radius: 18px; transition: 0.15s; position: relative; z-index: 1;
+             -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+             -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   .tab-btn.active { color: #fff; transition: color 0.2s ease; }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
@@ -61,7 +63,9 @@ body {
   #tab-start .select-btn-row { margin-top: 14px; }
   #tab-training .select-btn, #tab-start .select-btn { flex: 1; }
   .select-btn { padding: 8px 16px; border: none; background: none; color: #aaa; border-radius: 12px; cursor: pointer;
-                font-size: 13px; font-weight: 700; position: relative; z-index: 1; transition: color 0.2s ease; }
+                font-size: 13px; font-weight: 700; position: relative; z-index: 1; transition: color 0.2s ease;
+                -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+                -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   .select-btn.active { color: #fff; }
 
   /* Sliding Pill Indicator (liquid-ähnlicher Tab-Wechsel) */
@@ -82,10 +86,12 @@ body {
   .month-sep { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #aaa; font-weight: 700; }
 
   /* Swipe-to-delete für Gewicht/Arms/Chest Einträge */
-  .swipe-cell { padding: 0 !important; position: relative; overflow: hidden; }
-  .swipe-delete-bg { position: absolute; inset: 0; background: #ff5c5c; color: #fff; display: flex;
+  .swipe-cell { padding: 0 !important; position: relative; overflow: hidden;
+                -webkit-transform: translateZ(0); transform: translateZ(0); }
+  .swipe-delete-bg { position: absolute; inset: 0; background: #ff5c5c; color: #fff; display: none;
                       align-items: center; justify-content: flex-end; padding-right: 22px;
-                      font-weight: 700; font-size: 13px; cursor: pointer; }
+                      font-weight: 700; font-size: 13px; cursor: pointer; border-radius: 14px; }
+  .swipe-cell.swipe-open .swipe-delete-bg { display: flex; }
   .swipe-content { position: relative; z-index: 1; display: flex; justify-content: space-between;
                     align-items: center; background: #161616; padding: 10px 14px;
                     touch-action: pan-y; will-change: transform; }
@@ -201,8 +207,8 @@ body {
 
 <div class="tabs">
   <div class="pill-indicator" id="tabsIndicator"></div>
-  <button class="tab-btn active" onclick="switchTab('start')">Gewicht</button>
-  <button class="tab-btn" onclick="switchTab('training')">Training</button>
+  <button class="tab-btn active" onclick="switchTab(event,'start')">Gewicht</button>
+  <button class="tab-btn" onclick="switchTab(event,'training')">Training</button>
 </div>
 
 <!-- START TAB -->
@@ -291,7 +297,10 @@ function saveJSON(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
 function todayStr() {
   const d = new Date();
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -420,13 +429,14 @@ function migrateOldTrainingIfNeeded() {
 let currentTab = "start";
 let currentStartDate = todayStr();
 
-function switchTab(tab) {
+function switchTab(e, tab) {
   currentTab = tab;
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
   document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
   document.getElementById("tab-" + tab).classList.add("active");
-  event.target.classList.add("active");
-  movePillIndicator("tabsIndicator", event.target);
+  const btn = e.currentTarget || e.target;
+  btn.classList.add("active");
+  movePillIndicator("tabsIndicator", btn);
   if (tab === "training") renderTrainingTable();
 }
 
@@ -794,7 +804,11 @@ const SWIPE_MAX = 84;
 
 function closeAllSwipes(except) {
   document.querySelectorAll(".swipe-content.swiped").forEach(el => {
-    if (el !== except) { el.style.transform = "translateX(0)"; el.classList.remove("swiped"); }
+    if (el !== except) {
+      el.style.transform = "translateX(0)";
+      el.classList.remove("swiped");
+      el.parentElement.classList.remove("swipe-open");
+    }
   });
 }
 
@@ -829,14 +843,17 @@ function onSwipeEnd() {
     if (swipeState.currentX < -SWIPE_MAX / 2) {
       el.style.transform = `translateX(-${SWIPE_MAX}px)`;
       el.classList.add("swiped");
+      el.parentElement.classList.add("swipe-open");
       closeAllSwipes(el);
     } else {
       el.style.transform = "translateX(0)";
       el.classList.remove("swiped");
+      el.parentElement.classList.remove("swipe-open");
     }
   } else if (el.classList.contains("swiped")) {
     el.style.transform = "translateX(0)";
     el.classList.remove("swiped");
+    el.parentElement.classList.remove("swipe-open");
   }
   swipeState = { startX: 0, startY: 0, dragging: false, el: null, locked: null, currentX: 0 };
 }
